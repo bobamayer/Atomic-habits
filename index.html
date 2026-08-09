@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Paperclip Ledger — Habit Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #F4EEDC;
+    --paper: #11140D;
+    --paper-raised: #1D2216;
+    --paper-input: #262C1C;
+    --brass: #E7B24E;
+    --brass-dark: #F3CA75;
+    --sage: #7FD98A;
+    --line: #4A5240;
+    --text: #F4EEDC;
+    --muted: #ACA48C;
+    --danger: #F0917C;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      repeating-linear-gradient(transparent, transparent 27px, rgba(244,238,220,0.035) 28px);
+    color: var(--text);
+    font-family: 'Work Sans', sans-serif;
+    line-height: 1.5;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+
+  h1, h2 {
+    font-family: 'Fraunces', serif;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass-dark);
+    margin: 0 0 6px;
+  }
+
+  header.ledger-head {
+    text-align: center;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 28px;
+    margin-bottom: 32px;
+  }
+
+  header.ledger-head h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700;
+  }
+
+  .sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 8px 0 24px;
+  }
+
+  #weekRange {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink);
+  }
+
+  /* ---- Jars ---- */
+  .jars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .jar-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .jar-body {
+    width: 128px;
+    min-height: 150px;
+    background: rgba(244,238,220,0.07);
+    border: 3px solid var(--ink);
+    border-radius: 10px 10px 36px 36px;
+    position: relative;
+    padding: 12px 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-end;
+    justify-content: center;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .jar-body::before {
+    content: '';
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 54px;
+    height: 15px;
+    background: var(--ink);
+    border-radius: 4px 4px 0 0;
+  }
+
+  .jar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .arrow {
+    font-size: 22px;
+    color: var(--brass-dark);
+    padding-bottom: 60px;
+  }
+
+  .clip-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .clip-icon.pop { animation: clipPop 320ms ease-out; }
+  }
+  @keyframes clipPop {
+    from { transform: scale(0.2) rotate(0deg); opacity: 0; }
+    to   { transform: scale(1) rotate(var(--rot, 0deg)); opacity: 1; }
+  }
+
+  .jar-count {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    margin: 14px 0 0;
+  }
+
+  /* ---- Sections ---- */
+  section { margin-bottom: 36px; }
+
+  section h2 {
+    font-size: 20px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* ---- Add habit form ---- */
+  #addForm {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  #addForm input {
+    flex: 1 1 200px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-input);
+    font-family: 'Work Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+  }
+  #addForm input::placeholder { color: var(--muted); }
+
+  #addForm input:focus, .day-box:focus-visible, button:focus-visible, .import-label:focus-within {
+    outline: 2px solid var(--brass);
+    outline-offset: 2px;
+  }
+
+  button {
+    font-family: 'Work Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    border: none;
+  }
+
+  #addForm button {
+    background: var(--brass);
+    color: #17190F;
+    padding: 10px 18px;
+    flex-shrink: 0;
+  }
+  #addForm button:hover { background: var(--brass-dark); }
+
+  /* ---- Habit rows ---- */
+  .habit-row {
+    background: var(--paper-raised);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  .habit-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .habit-name {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 17px;
+    margin: 0;
+  }
+
+  .habit-reward {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 3px 0 0;
+  }
+
+  .remove-btn {
+    background: transparent;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .remove-btn:hover { background: rgba(240,145,124,0.15); color: var(--danger); }
+
+  .days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+
+  .day-box {
+    background: var(--paper-input);
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 0 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+
+  .day-box .check-mark {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: transparent;
+  }
+
+  .day-box.checked {
+    border-color: var(--sage);
+    color: var(--sage);
+  }
+  .day-box.checked .check-mark {
+    background: var(--sage);
+    border-color: var(--sage);
+    color: white;
+  }
+
+  .reward-banner {
+    margin-top: 10px;
+    font-size: 13px;
+    background: rgba(231,178,78,0.12);
+    color: var(--brass-dark);
+    border: 1px dashed var(--brass);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: none;
+  }
+  .reward-banner.show { display: block; }
+
+  .empty {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ---- History ---- */
+  .history-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  .history-head h2 { border: none; margin: 0; padding: 0; }
+
+  .history-actions { display: flex; gap: 8px; }
+  .history-actions button, .import-label {
+    background: transparent;
+    border: 1.5px solid var(--line);
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--ink);
+    border-radius: 8px;
+    display: inline-block;
+    cursor: pointer;
+  }
+  .history-actions button:hover, .import-label:hover { border-color: var(--brass); }
+
+  .trend {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 70px;
+    margin-bottom: 18px;
+    padding: 0 2px;
+  }
+  .trend-bar {
+    flex: 1;
+    background: var(--brass);
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    position: relative;
+  }
+  .trend-bar.current { background: var(--sage); }
+
+  .history-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--paper-raised);
+  }
+  .history-card .h-range {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--brass-dark);
+    margin: 0 0 6px;
+  }
+  .history-card .h-habit {
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px dotted var(--line);
+  }
+  .history-card .h-habit:last-child { border-bottom: none; }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 40px;
+  }
+
+  @media (max-width: 480px) {
+    .days { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .day-box { font-size: 9px; padding: 6px 0 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="ledger-head">
+    <p class="eyebrow">Atomic Habits · Weekly Ledger</p>
+    <h1>The Paperclip Ledger</h1>
+    <p class="sub">Move a clip for every mark you make. <span id="weekRange"></span></p>
+
+    <div class="jars">
+      <div class="jar-wrap">
+        <div class="jar-body" id="jarQueue"></div>
+        <p class="jar-label">To move</p>
+      </div>
+      <div class="arrow">&#8594;</div>
+      <div class="jar-wrap">
+        <div class="jar-body" id="jarDone"></div>
+        <p class="jar-label">Moved</p>
+      </div>
+    </div>
+    <p class="jar-count" id="jarCount"></p>
+  </header>
+
+  <section class="add-habit">
+    <h2>Add a habit</h2>
+    <form id="addForm">
+      <input id="habitName" placeholder="Habit, e.g. Read 10 pages" required maxlength="60">
+      <input id="habitReward" placeholder="Small reward, e.g. one square of chocolate" maxlength="80">
+      <button type="submit">Add habit</button>
+    </form>
+  </section>
+
+  <section class="habits">
+    <h2>This week</h2>
+    <div id="habitList"></div>
+    <p id="emptyState" class="empty">No habits yet — add your first one above.</p>
+  </section>
+
+  <section class="history">
+    <div class="history-head">
+      <h2>Ledger history</h2>
+      <div class="history-actions">
+        <button id="exportBtn" type="button">Export backup</button>
+        <label class="import-label">Import
+          <input type="file" id="importInput" accept="application/json" hidden>
+        </label>
+      </div>
+    </div>
+    <div class="trend" id="trendChart"></div>
+    <div id="historyList"></div>
+    <p id="historyEmpty" class="empty">Your first archived week will appear here after the Sunday reset.</p>
+  </section>
+
+  <footer>
+    <p>Runs entirely in your browser. Data lives in this browser's storage — export a backup now and then.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'paperclipLedgerData';
+  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var DAY_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  // ---------- Date helpers ----------
+  function isoDate(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function getMonday(date) {
+    var d = new Date(date);
+    var dow = d.getDay(); // 0 = Sunday
+    var diff = dow === 0 ? -6 : 1 - dow;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function addDays(date, n) {
+    var d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function formatShort(d) {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function newId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2));
+  }
+
+  // ---------- State ----------
+  function defaultState() {
+    return {
+      weekStart: isoDate(getMonday(new Date())),
+      habits: [],
+      history: []
+    };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      var parsed = JSON.parse(raw);
+      if (!parsed.weekStart || !Array.isArray(parsed.habits) || !Array.isArray(parsed.history)) {
+        return defaultState();
+      }
+      return parsed;
+    } catch (e) {
+      console.error('Could not read saved data, starting fresh.', e);
+      return defaultState();
+    }
+  }
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  var state = load();
+
+  // Archive the previous week + reset checkboxes if we've crossed into a new week
+  // (i.e. past Sunday 11:59pm relative to whatever week is currently stored).
+  function ensureCurrentWeek() {
+    var currentMonday = isoDate(getMonday(new Date()));
+    if (state.weekStart === currentMonday) return;
+
+    if (state.habits.length > 0) {
+      var weekStartDate = new Date(state.weekStart + 'T00:00:00');
+      var weekEndDate = addDays(weekStartDate, 6);
+      state.history.unshift({
+        weekStart: state.weekStart,
+        weekEnd: isoDate(weekEndDate),
+        habits: state.habits.map(function (h) {
+          return {
+            name: h.name,
+            reward: h.reward,
+            checks: h.checks.slice(),
+            completed: h.checks.filter(Boolean).length,
+            total: 7
+          };
+        })
+      });
+    }
+
+    state.habits.forEach(function (h) { h.checks = [false,false,false,false,false,false,false]; });
+    state.weekStart = currentMonday;
+    save();
+  }
+
+  ensureCurrentWeek();
+  // Re-check periodically in case the tab is left open across the Sunday-night boundary.
+  setInterval(function () {
+    ensureCurrentWeek();
+    renderAll();
+  }, 60 * 1000);
+
+  // ---------- Paperclip icon ----------
+  function clipSVG(extraClass) {
+    var rot = Math.round(Math.random() * 30 - 15);
+    return '<svg class="clip-icon ' + (extraClass || '') + '" style="--rot:' + rot + 'deg; transform: rotate(' + rot + 'deg);" ' +
+      'viewBox="0 0 24 24" fill="none" stroke="' + 'var(--brass-dark)' + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>';
+  }
+
+  // ---------- Rendering ----------
+  var elWeekRange = document.getElementById('weekRange');
+  var elJarQueue = document.getElementById('jarQueue');
+  var elJarDone = document.getElementById('jarDone');
+  var elJarCount = document.getElementById('jarCount');
+  var elHabitList = document.getElementById('habitList');
+  var elEmptyState = document.getElementById('emptyState');
+  var elHistoryList = document.getElementById('historyList');
+  var elHistoryEmpty = document.getElementById('historyEmpty');
+  var elTrend = document.getElementById('trendChart');
+
+  function renderWeekRange() {
+    var start = new Date(state.weekStart + 'T00:00:00');
+    var end = addDays(start, 6);
+    elWeekRange.textContent = 'Week of ' + formatShort(start) + ' – ' + formatShort(end);
+  }
+
+  function renderJars(animateNewClip) {
+    var totalPossible = state.habits.length * 7;
+    var done = 0;
+    state.habits.forEach(function (h) { done += h.checks.filter(Boolean).length; });
+    var remaining = totalPossible - done;
+
+    elJarQueue.innerHTML = '';
+    elJarDone.innerHTML = '';
+    for (var i = 0; i < remaining; i++) elJarQueue.insertAdjacentHTML('beforeend', clipSVG());
+    for (var j = 0; j < done; j++) {
+      var isLast = animateNewClip && j === done - 1;
+      elJarDone.insertAdjacentHTML('beforeend', clipSVG(isLast ? 'pop' : ''));
+    }
+
+    elJarCount.textContent = totalPossible === 0
+      ? 'Add a habit to start filling the jar.'
+      : done + ' of ' + totalPossible + ' clips moved this week';
+  }
+
+  function renderHabits() {
+    elHabitList.innerHTML = '';
+    elEmptyState.style.display = state.habits.length === 0 ? 'block' : 'none';
+
+    state.habits.forEach(function (h) {
+      var completedAll = h.checks.every(Boolean);
+      var row = document.createElement('div');
+      row.className = 'habit-row';
+      row.dataset.id = h.id;
+
+      var daysHTML = h.checks.map(function (checked, i) {
+        return '<button type="button" class="day-box' + (checked ? ' checked' : '') + '" data-day="' + i + '" aria-pressed="' + checked + '" aria-label="' + DAY_FULL[i] + (checked ? ', done' : ', not done') + '">' +
+          DAYS[i] + '<span class="check-mark">&#10003;</span></button>';
+      }).join('');
+
+      row.innerHTML =
+        '<div class="habit-main">' +
+          '<div class="habit-info">' +
+            '<p class="habit-name">' + escapeHTML(h.name) + '</p>' +
+            (h.reward ? '<p class="habit-reward">Reward: ' + escapeHTML(h.reward) + '</p>' : '') +
+          '</div>' +
+          '<button type="button" class="remove-btn" aria-label="Remove habit">&times;</button>' +
+        '</div>' +
+        '<div class="days">' + daysHTML + '</div>' +
+        (h.reward ? '<div class="reward-banner' + (completedAll ? ' show' : '') + '">You earned it: ' + escapeHTML(h.reward) + '</div>' : '');
+
+      elHabitList.appendChild(row);
+    });
+  }
+
+  function renderTrend() {
+    elTrend.innerHTML = '';
+    var weeks = state.history.slice(0, 11).reverse(); // oldest to newest, cap at 11
+    var currentPossible = state.habits.length * 7;
+    var currentDone = 0;
+    state.habits.forEach(function (h) { currentDone += h.checks.filter(Boolean).length; });
+
+    var all = weeks.map(function (w) {
+      var possible = w.habits.length * 7;
+      var done = w.habits.reduce(function (sum, h) { return sum + h.completed; }, 0);
+      return { pct: possible ? Math.round((done / possible) * 100) : 0, current: false };
+    });
+    all.push({ pct: currentPossible ? Math.round((currentDone / currentPossible) * 100) : 0, current: true });
+
+    if (all.length === 0 || currentPossible + weeks.length === 0) return;
+
+    all.forEach(function (w) {
+      var bar = document.createElement('div');
+      bar.className = 'trend-bar' + (w.current ? ' current' : '');
+      bar.style.height = Math.max(w.pct, 3) + '%';
+      bar.title = (w.current ? 'This week: ' : '') + w.pct + '% complete';
+      elTrend.appendChild(bar);
+    });
+  }
+
+  function renderHistory() {
+    elHistoryList.innerHTML = '';
+    elHistoryEmpty.style.display = state.history.length === 0 ? 'block' : 'none';
+
+    state.history.forEach(function (w) {
+      var start = new Date(w.weekStart + 'T00:00:00');
+      var end = new Date(w.weekEnd + 'T00:00:00');
+      var card = document.createElement('div');
+      card.className = 'history-card';
+      var habitsHTML = w.habits.map(function (h) {
+        return '<div class="h-habit"><span>' + escapeHTML(h.name) + '</span><span>' + h.completed + '/' + h.total + '</span></div>';
+      }).join('');
+      card.innerHTML = '<p class="h-range">' + formatShort(start) + ' – ' + formatShort(end) + '</p>' + habitsHTML;
+      elHistoryList.appendChild(card);
+    });
+  }
+
+  function escapeHTML(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderAll(animateNewClip) {
+    renderWeekRange();
+    renderJars(animateNewClip);
+    renderHabits();
+    renderTrend();
+    renderHistory();
+  }
+
+  // ---------- Event handlers ----------
+  document.getElementById('addForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var nameInput = document.getElementById('habitName');
+    var rewardInput = document.getElementById('habitReward');
+    var name = nameInput.value.trim();
+    if (!name) return;
+    state.habits.push({
+      id: newId(),
+      name: name,
+      reward: rewardInput.value.trim(),
+      checks: [false,false,false,false,false,false,false]
+    });
+    save();
+    nameInput.value = '';
+    rewardInput.value = '';
+    nameInput.focus();
+    renderAll();
+  });
+
+  elHabitList.addEventListener('click', function (e) {
+    var dayBtn = e.target.closest('.day-box');
+    var removeBtn = e.target.closest('.remove-btn');
+    var row = e.target.closest('.habit-row');
+    if (!row) return;
+    var id = row.dataset.id;
+    var habit = state.habits.find(function (h) { return h.id === id; });
+    if (!habit) return;
+
+    if (dayBtn) {
+      var dayIndex = Number(dayBtn.dataset.day);
+      var turningOn = !habit.checks[dayIndex];
+      habit.checks[dayIndex] = turningOn;
+      save();
+      renderAll(turningOn);
+    } else if (removeBtn) {
+      if (confirm('Remove "' + habit.name + '"? This only removes it going forward — past weeks stay in history.')) {
+        state.habits = state.habits.filter(function (h) { return h.id !== id; });
+        save();
+        renderAll();
+      }
+    }
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'paperclip-ledger-backup-' + isoDate(new Date()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('importInput').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        if (!parsed.weekStart || !Array.isArray(parsed.habits) || !Array.isArray(parsed.history)) {
+          throw new Error('File does not look like a ledger backup.');
+        }
+        if (!confirm('Import this backup? It will replace everything currently in your tracker.')) return;
+        state = parsed;
+        save();
+        ensureCurrentWeek();
+        renderAll();
+      } catch (err) {
+        alert('Could not import that file: ' + err.message);
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
